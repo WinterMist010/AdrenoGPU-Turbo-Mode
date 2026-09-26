@@ -32,14 +32,6 @@ public class MainActivity extends Activity {
             "/sys/class/kgsl/kgsl-3d0/devfreq/cur_freq",
             "/sys/class/devfreq/kgsl-3d0/cur_freq"
     };
-    private static final String[] GPU_AVAILABLE_FREQUENCY_PATHS = {
-            "/sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies",
-            "/sys/class/devfreq/kgsl-3d0/available_frequencies"
-    };
-    private static final String[] GPU_MAX_FREQUENCY_PATHS = {
-            "/sys/class/kgsl/kgsl-3d0/devfreq/max_freq",
-            "/sys/class/devfreq/kgsl-3d0/max_freq"
-    };
 
     static {
         System.loadLibrary("adrenoturboswitch");
@@ -50,7 +42,6 @@ public class MainActivity extends Activity {
 
     private final Handler frequencyHandler = new Handler(Looper.getMainLooper());
     private TextView gpuFrequencyText;
-    private TextView driverLimitText;
     private TextView turboStatusText;
     private MaterialButton enableButton;
     private MaterialButton disableButton;
@@ -84,7 +75,6 @@ public class MainActivity extends Activity {
         enableButton = findViewById(R.id.button_enable);
         disableButton = findViewById(R.id.button_disable);
         gpuFrequencyText = findViewById(R.id.textGpuFreq);
-        driverLimitText = findViewById(R.id.textDriverLimit);
         turboStatusText = findViewById(R.id.textTurboStatus);
 
         TextView gpuModelText = findViewById(R.id.textGpuModel);
@@ -96,7 +86,6 @@ public class MainActivity extends Activity {
         if (!frequencyAvailable) {
             gpuFrequencyText.setText(R.string.frequency_unavailable);
         }
-        updateDriverLimit();
 
         findViewById(R.id.button_about).setOnClickListener(view -> showAboutDialog());
         enableButton.setOnClickListener(view -> changeTurbo(true));
@@ -163,40 +152,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void updateDriverLimit() {
-        Long availableMaximum = readHighestFrequency(GPU_AVAILABLE_FREQUENCY_PATHS);
-        Long maximumCap = readHighestFrequency(GPU_MAX_FREQUENCY_PATHS);
-
-        if (maximumCap != null && availableMaximum != null) {
-            driverLimitText.setText(getString(R.string.driver_limit_with_available,
-                    maximumCap / 1_000_000L, availableMaximum / 1_000_000L));
-        } else if (maximumCap != null) {
-            driverLimitText.setText(getString(R.string.driver_limit, maximumCap / 1_000_000L));
-        } else if (availableMaximum != null) {
-            driverLimitText.setText(getString(R.string.driver_available_maximum,
-                    availableMaximum / 1_000_000L));
-        } else {
-            driverLimitText.setText(R.string.driver_limit_unavailable);
-        }
-    }
-
-    private static Long readHighestFrequency(String[] paths) {
-        String values = readFirstAvailableContents(paths);
-        if (values == null) {
-            return null;
-        }
-
-        long highest = -1L;
-        for (String value : values.trim().split("\\s+")) {
-            try {
-                highest = Math.max(highest, Long.parseLong(value));
-            } catch (NumberFormatException ignored) {
-                // Ignore non-frequency text from vendor-specific sysfs nodes.
-            }
-        }
-        return highest >= 0L ? highest : null;
-    }
-
     private static String firstExistingPath(String[] paths) {
         for (String path : paths) {
             if (new File(path).isFile()) {
@@ -212,24 +167,6 @@ public class MainActivity extends Activity {
                 String value = reader.readLine();
                 if (value != null && !value.trim().isEmpty()) {
                     return value.trim();
-                }
-            } catch (IOException ignored) {
-                // Vendor kernels expose different optional sysfs nodes.
-            }
-        }
-        return null;
-    }
-
-    private static String readFirstAvailableContents(String[] paths) {
-        for (String path : paths) {
-            try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
-                StringBuilder values = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    values.append(line).append(' ');
-                }
-                if (values.toString().trim().length() > 0) {
-                    return values.toString().trim();
                 }
             } catch (IOException ignored) {
                 // Vendor kernels expose different optional sysfs nodes.
