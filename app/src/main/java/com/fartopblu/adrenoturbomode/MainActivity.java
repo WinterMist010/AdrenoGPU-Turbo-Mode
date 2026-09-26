@@ -80,7 +80,7 @@ public class MainActivity extends Activity {
         TextView gpuModelText = findViewById(R.id.textGpuModel);
         String gpuModel = readFirstAvailable(GPU_MODEL_PATHS);
         gpuModelText.setText(gpuModel == null
-                ? R.string.gpu_not_detected
+                ? getString(R.string.gpu_not_detected)
                 : getString(R.string.gpu_model, gpuModel));
         frequencyAvailable = firstExistingPath(GPU_FREQUENCY_PATHS) != null;
         if (!frequencyAvailable) {
