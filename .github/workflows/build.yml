@@ -27,14 +27,8 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-
-      - name: Install Android build dependencies
-        run: >-
-          sdkmanager --install
-          "platforms;android-34"
-          "build-tools;34.0.0"
-          "cmake;3.22.1"
-          "ndk;25.1.8937393"
+        with:
+          accept-android-sdk-licenses: true
 
       - name: Build debug APK
         run: ./gradlew --no-daemon assembleDebug
