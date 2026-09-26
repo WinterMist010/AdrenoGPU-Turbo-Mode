@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'V'
+        description: 'Version to build'
         required: true
         type: string
 
@@ -41,9 +41,12 @@ jobs:
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: 'r26d'
+          link-to-sdk: true
 
       - name: Build debug APK
-        run: ./gradlew --no-daemon assembleDebug
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon assembleDebug
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
