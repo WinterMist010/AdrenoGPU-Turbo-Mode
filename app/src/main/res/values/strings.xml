@@ -16,6 +16,10 @@
     <string name="turbo_failed">Turbo mode could not be changed. Try again while a game is running.</string>
     <string name="frequency">Current frequency: %1$d MHz</string>
     <string name="frequency_unavailable">Current frequency is unavailable on this driver</string>
+    <string name="driver_limit">Driver limit: %1$d MHz (available: %2$s MHz)</string>
+    <string name="driver_limit_max_only">Driver limit: %1$d MHz (available frequencies are unavailable)</string>
+    <string name="driver_limit_available_only">Driver limit: max_freq is unavailable (available: %1$s MHz)</string>
+    <string name="driver_limit_unavailable">Driver limit is unavailable on this driver</string>
     <string name="thermal_notice">Turbo requests the highest available clocks. Thermal limits still apply.</string>
     <string name="about">This application requests Turbo mode, which can keep the GPU at higher clocks while supported workloads are running.\n\n1. Turbo mode is for Qualcomm Adreno GPUs, including newer A8XX devices when their vendor driver exposes Turbo control.\n2. The application does not require ADB or root access.\n3. Higher clocks can increase temperature and battery use.\n4. GPU drivers differ by device and software version, so Turbo or frequency reporting may be unavailable.\n5. Some devices release Turbo when the GPU becomes idle; enable it while the game is running.\n6. If performance remains low after locking the screen, restart the device.\n\nCreated by Fartopblu\nhttps://github.com/Fartopblu/AdrenoGPU-Turbo-Mode\n\nUses libadrenotools\nhttps://github.com/bylaws/libadrenotools/</string>
 </resources>
