@@ -27,7 +27,7 @@
     <string name="governor_current">Current: %1$s</string>
     <string name="governor_unavailable">Governor control unavailable on this kernel</string>
     <string name="apply_governor">Set Governor</string>
-    <string name="freq_limits_label">Frequency Limits & Controls</string>
+    <string name="freq_limits_label">Frequency Limits &amp; Controls</string>
     <string name="min_freq_label">Min Freq</string>
     <string name="max_freq_label">Max Freq</string>
     <string name="apply_freq_limits">Apply Freq Limits</string>
