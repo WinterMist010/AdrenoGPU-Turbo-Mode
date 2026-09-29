@@ -1,13 +1,15 @@
-package com.fartopblu.adrenoturbomode;
+package com.wintermist.adrenoperformancemanager;
 
 import android.app.Activity;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.text.TextUtils;
 import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.color.DynamicColors;
@@ -15,6 +17,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -27,7 +30,7 @@ public class MainActivity extends Activity {
     private static final String KEY_FIRST_RUN = "isFirstRun";
     private static final long FREQUENCY_REFRESH_MS = 1300L;
 
-    // Expanded GPU model sysfs paths supporting legacy Adreno, A6XX, A7XX, and A8XX / 8-series
+    // Expanded GPU model sysfs paths
     private static final String[] GPU_MODEL_PATHS = {
             "/sys/class/kgsl/kgsl-3d0/gpu_model",
             "/sys/class/kgsl/kgsl-3d0/gpu_name",
@@ -36,7 +39,7 @@ public class MainActivity extends Activity {
             "/sys/class/devfreq/kgsl-3d0/gpu_model"
     };
 
-    // Expanded frequency reading paths across kgsl, devfreq, msm-adreno-tz, and vendor nodes
+    // Expanded frequency reading paths
     private static final String[] GPU_FREQUENCY_PATHS = {
             "/sys/class/kgsl/kgsl-3d0/gpuclk",
             "/sys/class/kgsl/kgsl-3d0/clock_mhz",
@@ -46,7 +49,7 @@ public class MainActivity extends Activity {
             "/sys/class/devfreq/msm-adreno-tz/cur_freq"
     };
 
-    // Expanded available frequency paths across kgsl, devfreq, and vendor nodes
+    // Available frequency paths
     private static final String[] GPU_AVAILABLE_FREQUENCIES_PATHS = {
             "/sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies",
             "/sys/class/devfreq/kgsl-3d0/available_frequencies",
@@ -56,13 +59,51 @@ public class MainActivity extends Activity {
             "/sys/class/kgsl/kgsl-3d0/gpu_available_frequencies"
     };
 
-    // Expanded max frequency paths
+    // Max frequency paths
     private static final String[] GPU_MAX_FREQUENCY_PATHS = {
             "/sys/class/kgsl/kgsl-3d0/devfreq/max_freq",
             "/sys/class/devfreq/kgsl-3d0/max_freq",
             "/sys/class/devfreq/3d00000.gpu/max_freq",
             "/sys/class/devfreq/msm-adreno-tz/max_freq",
             "/sys/class/kgsl/kgsl-3d0/max_gpuclk"
+    };
+
+    // Min frequency paths
+    private static final String[] GPU_MIN_FREQUENCY_PATHS = {
+            "/sys/class/kgsl/kgsl-3d0/devfreq/min_freq",
+            "/sys/class/devfreq/kgsl-3d0/min_freq",
+            "/sys/class/devfreq/3d00000.gpu/min_freq",
+            "/sys/class/devfreq/msm-adreno-tz/min_freq",
+            "/sys/class/kgsl/kgsl-3d0/min_gpuclk"
+    };
+
+    // GPU temperature paths
+    private static final String[] GPU_TEMP_PATHS = {
+            "/sys/class/kgsl/kgsl-3d0/gputemperature",
+            "/sys/class/kgsl/kgsl-3d0/temp",
+            "/sys/class/thermal/thermal_zone0/temp",
+            "/sys/class/thermal/thermal_zone1/temp"
+    };
+
+    // GPU governor paths
+    private static final String[] GPU_GOVERNOR_PATHS = {
+            "/sys/class/kgsl/kgsl-3d0/devfreq/governor",
+            "/sys/class/devfreq/kgsl-3d0/governor",
+            "/sys/class/devfreq/3d00000.gpu/governor",
+            "/sys/class/devfreq/msm-adreno-tz/governor"
+    };
+
+    private static final String[] GPU_AVAILABLE_GOVERNORS_PATHS = {
+            "/sys/class/kgsl/kgsl-3d0/devfreq/available_governors",
+            "/sys/class/devfreq/kgsl-3d0/available_governors",
+            "/sys/class/devfreq/3d00000.gpu/available_governors",
+            "/sys/class/devfreq/msm-adreno-tz/available_governors"
+    };
+
+    // KGSL Power Level paths
+    private static final String[] GPU_PWRLEVEL_PATHS = {
+            "/sys/class/kgsl/kgsl-3d0/pwrlevel",
+            "/sys/class/kgsl/kgsl-3d0/num_pwrlevels"
     };
 
     static {
@@ -74,10 +115,18 @@ public class MainActivity extends Activity {
 
     private final Handler frequencyHandler = new Handler(Looper.getMainLooper());
     private TextView gpuFrequencyText;
+    private TextView gpuTempText;
     private TextView driverLimitText;
     private TextView turboStatusText;
+    private TextView governorStatusText;
+    private TextView pwrlevelStatusText;
+    private Spinner governorSpinner;
+    private Spinner minFreqSpinner;
+    private Spinner maxFreqSpinner;
     private MaterialButton enableButton;
     private MaterialButton disableButton;
+    private MaterialButton applyGovButton;
+    private MaterialButton applyFreqButton;
     private boolean frequencyAvailable;
     private boolean turboEnabled;
 
@@ -85,6 +134,7 @@ public class MainActivity extends Activity {
         @Override
         public void run() {
             updateFrequency();
+            updateTemperature();
             if (frequencyAvailable) {
                 frequencyHandler.postDelayed(this, FREQUENCY_REFRESH_MS);
             }
@@ -108,8 +158,16 @@ public class MainActivity extends Activity {
         enableButton = findViewById(R.id.button_enable);
         disableButton = findViewById(R.id.button_disable);
         gpuFrequencyText = findViewById(R.id.textGpuFreq);
+        gpuTempText = findViewById(R.id.textGpuTemp);
         driverLimitText = findViewById(R.id.textDriverLimit);
         turboStatusText = findViewById(R.id.textTurboStatus);
+        governorStatusText = findViewById(R.id.textGovernorStatus);
+        pwrlevelStatusText = findViewById(R.id.textPwrlevelStatus);
+        governorSpinner = findViewById(R.id.spinnerGovernor);
+        minFreqSpinner = findViewById(R.id.spinnerMinFreq);
+        maxFreqSpinner = findViewById(R.id.spinnerMaxFreq);
+        applyGovButton = findViewById(R.id.button_apply_governor);
+        applyFreqButton = findViewById(R.id.button_apply_freq);
 
         TextView gpuModelText = findViewById(R.id.textGpuModel);
         String gpuModel = detectGpuModel();
@@ -122,10 +180,17 @@ public class MainActivity extends Activity {
             gpuFrequencyText.setText(R.string.frequency_unavailable);
         }
         updateDriverLimit();
+        updateTemperature();
+        setupGovernorControls();
+        setupFrequencyControls();
+        updatePowerLevel();
 
         findViewById(R.id.button_about).setOnClickListener(view -> showAboutDialog());
         enableButton.setOnClickListener(view -> changeTurbo(true));
         disableButton.setOnClickListener(view -> changeTurbo(false));
+        applyGovButton.setOnClickListener(view -> applyGovernorSelection());
+        applyFreqButton.setOnClickListener(view -> applyFreqLimitsSelection());
+
         updateButtons();
 
         SharedPreferences preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
@@ -188,6 +253,22 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void updateTemperature() {
+        String value = readFirstAvailable(GPU_TEMP_PATHS);
+        if (value == null) {
+            gpuTempText.setText(R.string.gpu_temp_unavailable);
+            return;
+        }
+
+        try {
+            long rawTemp = Long.parseLong(value.trim().split("\\s+")[0]);
+            double tempC = rawTemp > 1000 ? rawTemp / 1000.0 : rawTemp;
+            gpuTempText.setText(getString(R.string.gpu_temp, String.format("%.1f °C", tempC)));
+        } catch (NumberFormatException ignored) {
+            gpuTempText.setText(R.string.gpu_temp_unavailable);
+        }
+    }
+
     private void updateDriverLimit() {
         String availableFrequenciesContent = readFirstAvailableContent(GPU_AVAILABLE_FREQUENCIES_PATHS);
         Long maxFrequencyMhz = parseToMHz(readFirstAvailable(GPU_MAX_FREQUENCY_PATHS));
@@ -211,16 +292,122 @@ public class MainActivity extends Activity {
         }
     }
 
-    /**
-     * Tries sysfs nodes first, and falls back to system properties if necessary.
-     */
+    private void setupGovernorControls() {
+        String currentGov = readFirstAvailable(GPU_GOVERNOR_PATHS);
+        String availableGovs = readFirstAvailableContent(GPU_AVAILABLE_GOVERNORS_PATHS);
+
+        if (currentGov == null && availableGovs == null) {
+            governorStatusText.setText(R.string.governor_unavailable);
+            applyGovButton.setEnabled(false);
+            governorSpinner.setEnabled(false);
+            return;
+        }
+
+        governorStatusText.setText(getString(R.string.governor_current, currentGov != null ? currentGov : "Unknown"));
+
+        List<String> govList = new ArrayList<>();
+        if (availableGovs != null) {
+            for (String g : availableGovs.split("\\s+")) {
+                if (!g.trim().isEmpty() && !govList.contains(g.trim())) {
+                    govList.add(g.trim());
+                }
+            }
+        } else if (currentGov != null) {
+            govList.add(currentGov);
+        }
+
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, govList);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        governorSpinner.setAdapter(adapter);
+
+        if (currentGov != null) {
+            int pos = govList.indexOf(currentGov);
+            if (pos >= 0) {
+                governorSpinner.setSelection(pos);
+            }
+        }
+    }
+
+    private void setupFrequencyControls() {
+        String availableFrequenciesContent = readFirstAvailableContent(GPU_AVAILABLE_FREQUENCIES_PATHS);
+        List<Long> freqs = getFrequencyList(availableFrequenciesContent);
+
+        if (freqs.isEmpty()) {
+            minFreqSpinner.setEnabled(false);
+            maxFreqSpinner.setEnabled(false);
+            applyFreqButton.setEnabled(false);
+            return;
+        }
+
+        List<String> freqLabels = new ArrayList<>();
+        for (Long f : freqs) {
+            freqLabels.add(f + " MHz");
+        }
+
+        ArrayAdapter<String> minAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, freqLabels);
+        minAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        minFreqSpinner.setAdapter(minAdapter);
+
+        ArrayAdapter<String> maxAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, freqLabels);
+        maxAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        maxFreqSpinner.setAdapter(maxAdapter);
+
+        Long currentMin = parseToMHz(readFirstAvailable(GPU_MIN_FREQUENCY_PATHS));
+        Long currentMax = parseToMHz(readFirstAvailable(GPU_MAX_FREQUENCY_PATHS));
+
+        if (currentMin != null && freqs.contains(currentMin)) {
+            minFreqSpinner.setSelection(freqs.indexOf(currentMin));
+        }
+        if (currentMax != null && freqs.contains(currentMax)) {
+            maxFreqSpinner.setSelection(freqs.indexOf(currentMax));
+        } else {
+            maxFreqSpinner.setSelection(freqs.size() - 1);
+        }
+    }
+
+    private void updatePowerLevel() {
+        String pwrlevel = readFirstAvailable(GPU_PWRLEVEL_PATHS);
+        if (pwrlevel != null) {
+            pwrlevelStatusText.setText(getString(R.string.power_level, pwrlevel));
+        } else {
+            pwrlevelStatusText.setText(R.string.power_level_unavailable);
+        }
+    }
+
+    private void applyGovernorSelection() {
+        Object selected = governorSpinner.getSelectedItem();
+        if (selected == null) return;
+        String govName = selected.toString();
+        boolean success = writeFirstAvailable(GPU_GOVERNOR_PATHS, govName);
+        Toast.makeText(this, success ? R.string.setting_updated : R.string.setting_failed, Toast.LENGTH_SHORT).show();
+        setupGovernorControls();
+    }
+
+    private void applyFreqLimitsSelection() {
+        Object minSel = minFreqSpinner.getSelectedItem();
+        Object maxSel = maxFreqSpinner.getSelectedItem();
+        if (minSel == null || maxSel == null) return;
+
+        long minMhz = Long.parseLong(minSel.toString().replace(" MHz", "").trim());
+        long maxMhz = Long.parseLong(maxSel.toString().replace(" MHz", "").trim());
+
+        // Convert MHz back to Hz for devfreq nodes
+        long minHz = minMhz * 1_000_000L;
+        long maxHz = maxMhz * 1_000_000L;
+
+        boolean minSuccess = writeFirstAvailable(GPU_MIN_FREQUENCY_PATHS, String.valueOf(minHz));
+        boolean maxSuccess = writeFirstAvailable(GPU_MAX_FREQUENCY_PATHS, String.valueOf(maxHz));
+
+        Toast.makeText(this, (minSuccess || maxSuccess) ? R.string.setting_updated : R.string.setting_failed, Toast.LENGTH_SHORT).show();
+        updateDriverLimit();
+    }
+
     private String detectGpuModel() {
         String sysfsModel = readFirstAvailable(GPU_MODEL_PATHS);
         if (sysfsModel != null && !sysfsModel.isEmpty()) {
             return sysfsModel;
         }
 
-        // Fallback to system properties if sysfs is inaccessible
         String egl = getSystemProperty("ro.hardware.egl");
         if (egl != null && egl.toLowerCase().contains("adreno")) {
             return egl;
@@ -239,10 +426,6 @@ public class MainActivity extends Activity {
         return null;
     }
 
-    /**
-     * Smart frequency parser that detects whether the raw value is in Hz, kHz, or MHz
-     * and converts it to MHz.
-     */
     public static Long parseToMHz(String value) {
         if (value == null || value.trim().isEmpty()) {
             return null;
@@ -255,28 +438,21 @@ public class MainActivity extends Activity {
                 return null;
             }
 
-            // Hz range: e.g. 800,000,000 Hz -> 800 MHz
             if (rawValue >= 100_000_000L) {
                 return rawValue / 1_000_000L;
             }
-            // kHz range: e.g. 800,000 kHz -> 800 MHz
             if (rawValue >= 100_000L) {
                 return rawValue / 1_000L;
             }
-            // MHz range: e.g. 800 MHz
             return rawValue;
         } catch (NumberFormatException ignored) {
             return null;
         }
     }
 
-    /**
-     * Parses single-line or multi-line space-separated/newline-separated frequency lists,
-     * converts all valid values to MHz, sorts them numerically, and formats as a comma-separated string.
-     */
-    public static String formatFrequenciesToMHz(String values) {
+    public static List<Long> getFrequencyList(String values) {
         if (values == null || values.trim().isEmpty()) {
-            return null;
+            return Collections.emptyList();
         }
 
         List<Long> mhzList = new ArrayList<>();
@@ -287,12 +463,16 @@ public class MainActivity extends Activity {
                 mhzList.add(mhz);
             }
         }
+        Collections.sort(mhzList);
+        return mhzList;
+    }
 
+    public static String formatFrequenciesToMHz(String values) {
+        List<Long> mhzList = getFrequencyList(values);
         if (mhzList.isEmpty()) {
             return null;
         }
 
-        Collections.sort(mhzList);
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < mhzList.size(); i++) {
             if (i > 0) {
@@ -327,7 +507,6 @@ public class MainActivity extends Activity {
                     return value.toString().trim();
                 }
             } catch (IOException ignored) {
-                // Vendor kernels expose different optional sysfs nodes.
             }
         }
         return null;
@@ -341,10 +520,24 @@ public class MainActivity extends Activity {
                     return value.trim();
                 }
             } catch (IOException ignored) {
-                // Vendor kernels expose different optional sysfs nodes.
             }
         }
         return null;
+    }
+
+    private static boolean writeFirstAvailable(String[] paths, String value) {
+        for (String path : paths) {
+            File file = new File(path);
+            if (file.exists() && file.canWrite()) {
+                try (FileOutputStream fos = new FileOutputStream(file)) {
+                    fos.write(value.getBytes());
+                    fos.flush();
+                    return true;
+                } catch (IOException ignored) {
+                }
+            }
+        }
+        return false;
     }
 
     private static String getSystemProperty(String propName) {

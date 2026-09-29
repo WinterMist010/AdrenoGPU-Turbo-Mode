@@ -44,11 +44,11 @@ int setTurbo(bool turbo) {
 } // namespace
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_fartopblu_adrenoturbomode_MainActivity_EnableTurbo(JNIEnv*, jobject) {
+Java_com_wintermist_adrenoperformancemanager_MainActivity_EnableTurbo(JNIEnv*, jobject) {
     return setTurbo(true);
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_fartopblu_adrenoturbomode_MainActivity_DisableTurbo(JNIEnv*, jobject) {
+Java_com_wintermist_adrenoperformancemanager_MainActivity_DisableTurbo(JNIEnv*, jobject) {
     return setTurbo(false);
 }

@@ -5,13 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "com.fartopblu.adrenoturbomode"
+    namespace = "com.wintermist.adrenoperformancemanager"
     compileSdk = 34
 
 
 
     defaultConfig {
-        applicationId = "com.fartopblu.adrenoturbomode"
+        applicationId = "com.wintermist.adrenoperformancemanager"
         minSdk = 25
         targetSdk = 25
         versionCode = 13

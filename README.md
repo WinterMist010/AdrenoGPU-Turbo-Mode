@@ -1,6 +1,6 @@
-# AdrenoGPU-Turbo-Mode
+# Adreno Performance Manager
 
-This application activates Turbo mode on Adreno GPUs, which can request the highest available GPU frequency. It supports legacy Adreno devices and newer A8XX devices when their vendor KGSL driver exposes Turbo control.
+This application monitors and tunes Qualcomm Adreno GPUs, including toggling Turbo mode, inspecting GPU temperature, managing devfreq governors, and monitoring frequency limits. It supports legacy Adreno devices and newer A8XX devices when their vendor KGSL/devfreq driver exposes required controls.
 
 Example on Samsung Galaxy Z Fold4:
 
