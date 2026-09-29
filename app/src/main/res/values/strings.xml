@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_title">Adreno GPU Turbo</string>
+    <string name="app_title">Adreno Performance Manager</string>
     <string name="enable">Enable Turbo</string>
     <string name="disable">Disable Turbo</string>
     <string name="about_btn">Before you enable Turbo</string>
@@ -21,5 +21,37 @@
     <string name="driver_limit_available_only">Driver limit: max_freq is unavailable (available: %1$s MHz)</string>
     <string name="driver_limit_unavailable">Driver limit is unavailable on this driver</string>
     <string name="thermal_notice">Turbo requests the highest available clocks. Thermal limits still apply.</string>
-    <string name="about">This application requests Turbo mode, which can keep the GPU at higher clocks while supported workloads are running.\n\n1. Turbo mode is for Qualcomm Adreno GPUs, including newer A8XX devices when their vendor driver exposes Turbo control.\n2. The application does not require ADB or root access.\n3. Higher clocks can increase temperature and battery use.\n4. GPU drivers differ by device and software version, so Turbo or frequency reporting may be unavailable.\n5. Some devices release Turbo when the GPU becomes idle; enable it while the game is running.\n6. If performance remains low after locking the screen, restart the device.\n\nCreated by Fartopblu\nhttps://github.com/Fartopblu/AdrenoGPU-Turbo-Mode\n\nUses libadrenotools\nhttps://github.com/bylaws/libadrenotools/</string>
+    <string name="gpu_temp">GPU Temp: %1$s</string>
+    <string name="gpu_temp_unavailable">GPU Temp: Unavailable</string>
+    <string name="governor_label">GPU Governor</string>
+    <string name="governor_current">Current: %1$s</string>
+    <string name="governor_unavailable">Governor control unavailable on this kernel</string>
+    <string name="apply_governor">Set Governor</string>
+    <string name="freq_limits_label">Frequency Limits &amp; Controls</string>
+    <string name="min_freq_label">Min Freq</string>
+    <string name="max_freq_label">Max Freq</string>
+    <string name="apply_freq_limits">Apply Freq Limits</string>
+    <string name="power_level_label">KGSL Power Level</string>
+    <string name="power_level">Power Level: %1$s</string>
+    <string name="power_level_unavailable">KGSL power level unavailable</string>
+
+    <string name="pwr_constraint_label">KGSL Power Constraint (Non-Rooted)</string>
+    <string name="pwr_constraint_desc">Direct hardware power constraint via KGSL driver interface. No root required.</string>
+    <string name="pwr_constraint_default">Default / Reset Constraint</string>
+    <string name="pwr_constraint_max">Max Performance (Force Max Clock)</string>
+    <string name="pwr_constraint_min">Power Saver (Force Min Clock)</string>
+    <string name="apply_pwr_constraint">Apply Constraint</string>
+    <string name="pwr_constraint_success">Power constraint updated successfully</string>
+    <string name="pwr_constraint_failed">Power constraint failed or unsupported by kernel</string>
+
+    <string name="setting_updated">Setting updated successfully</string>
+    <string name="setting_failed">Failed to update setting (read-only sysfs / root required)</string>
+    <string name="about">Adreno Performance Manager allows monitoring and tuning Qualcomm Adreno GPU settings, frequency limits, governors, power constraints, and Turbo control.\n\n1. Turbo mode and KGSL power constraint controls are designed for Qualcomm Adreno GPUs, including newer A8XX devices.\n2. Turbo mode and KGSL power constraints do not require ADB or root access. Advanced sysfs frequency tuning or governor changes may require root access depending on kernel permissions.\n3. Higher clock speeds and performance modes increase power consumption and device temperature.\n4. GPU drivers and sysfs interfaces differ across Android vendor kernels.\n\nUses libadrenotools\nhttps://github.com/bylaws/libadrenotools/</string>
+
+    <string name="shizuku_card_title">ADB via Shizuku Service</string>
+    <string name="shizuku_status_checking">Checking Shizuku ADB service status…</string>
+    <string name="shizuku_status_not_running">Shizuku service is not running. Please start Shizuku.</string>
+    <string name="shizuku_status_permission_denied">Shizuku service running. Permission requested or denied.</string>
+    <string name="shizuku_status_authorized">Shizuku ADB service connected and authorized.</string>
+    <string name="shizuku_request_permission">Request ADB Permission</string>
 </resources>

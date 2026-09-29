@@ -5,13 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "com.fartopblu.adrenoturbomode"
+    namespace = "com.wintermist.adrenoperformancemanager"
     compileSdk = 34
 
 
 
     defaultConfig {
-        applicationId = "com.fartopblu.adrenoturbomode"
+        applicationId = "com.wintermist.adrenoperformancemanager"
         minSdk = 25
         targetSdk = 25
         versionCode = 13
@@ -57,6 +57,7 @@ android {
     buildFeatures {
         prefab = true
         viewBinding = true
+        aidl = true
     }
     externalNativeBuild {
         cmake {
@@ -73,4 +74,6 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.annotation:annotation:1.8.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+
+    // Shizuku sources integrated directly into src/main/java and src/main/aidl
 }
