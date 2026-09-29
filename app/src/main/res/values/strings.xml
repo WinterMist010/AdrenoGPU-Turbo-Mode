@@ -34,7 +34,17 @@
     <string name="power_level_label">KGSL Power Level</string>
     <string name="power_level">Power Level: %1$s</string>
     <string name="power_level_unavailable">KGSL power level unavailable</string>
+
+    <string name="pwr_constraint_label">KGSL Power Constraint (Non-Rooted)</string>
+    <string name="pwr_constraint_desc">Direct hardware power constraint via KGSL driver interface. No root required.</string>
+    <string name="pwr_constraint_default">Default / Reset Constraint</string>
+    <string name="pwr_constraint_max">Max Performance (Force Max Clock)</string>
+    <string name="pwr_constraint_min">Power Saver (Force Min Clock)</string>
+    <string name="apply_pwr_constraint">Apply Constraint</string>
+    <string name="pwr_constraint_success">Power constraint updated successfully</string>
+    <string name="pwr_constraint_failed">Power constraint failed or unsupported by kernel</string>
+
     <string name="setting_updated">Setting updated successfully</string>
     <string name="setting_failed">Failed to update setting (read-only sysfs / root required)</string>
-    <string name="about">Adreno Performance Manager allows monitoring and tuning Qualcomm Adreno GPU settings, frequency limits, governors, and Turbo control.\n\n1. Turbo mode and performance controls are designed for Qualcomm Adreno GPUs, including newer A8XX devices.\n2. Turbo mode does not require ADB or root access. Advanced sysfs frequency tuning or governor changes may require root access depending on kernel permissions.\n3. Higher clock speeds and performance modes increase power consumption and device temperature.\n4. GPU drivers and sysfs interfaces differ across Android vendor kernels.\n\nUses libadrenotools\nhttps://github.com/bylaws/libadrenotools/</string>
+    <string name="about">Adreno Performance Manager allows monitoring and tuning Qualcomm Adreno GPU settings, frequency limits, governors, power constraints, and Turbo control.\n\n1. Turbo mode and KGSL power constraint controls are designed for Qualcomm Adreno GPUs, including newer A8XX devices.\n2. Turbo mode and KGSL power constraints do not require ADB or root access. Advanced sysfs frequency tuning or governor changes may require root access depending on kernel permissions.\n3. Higher clock speeds and performance modes increase power consumption and device temperature.\n4. GPU drivers and sysfs interfaces differ across Android vendor kernels.\n\nUses libadrenotools\nhttps://github.com/bylaws/libadrenotools/</string>
 </resources>
