@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.view.View;
 import android.widget.TextView;
 
@@ -16,29 +17,52 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public class MainActivity extends Activity {
     private static final String PREFS_NAME = "Preferences";
     private static final String KEY_FIRST_RUN = "isFirstRun";
     private static final long FREQUENCY_REFRESH_MS = 1300L;
+
+    // Expanded GPU model sysfs paths supporting legacy Adreno, A6XX, A7XX, and A8XX / 8-series
     private static final String[] GPU_MODEL_PATHS = {
             "/sys/class/kgsl/kgsl-3d0/gpu_model",
             "/sys/class/kgsl/kgsl-3d0/gpu_name",
-            "/sys/class/kgsl/kgsl-3d0/gpu_id"
+            "/sys/class/kgsl/kgsl-3d0/gpu_id",
+            "/sys/class/devfreq/3d00000.gpu/gpu_model",
+            "/sys/class/devfreq/kgsl-3d0/gpu_model"
     };
-    // A8XX vendor kernels commonly expose devfreq instead of the legacy gpuclk node.
+
+    // Expanded frequency reading paths across kgsl, devfreq, msm-adreno-tz, and vendor nodes
     private static final String[] GPU_FREQUENCY_PATHS = {
             "/sys/class/kgsl/kgsl-3d0/gpuclk",
+            "/sys/class/kgsl/kgsl-3d0/clock_mhz",
             "/sys/class/kgsl/kgsl-3d0/devfreq/cur_freq",
-            "/sys/class/devfreq/kgsl-3d0/cur_freq"
+            "/sys/class/devfreq/kgsl-3d0/cur_freq",
+            "/sys/class/devfreq/3d00000.gpu/cur_freq",
+            "/sys/class/devfreq/msm-adreno-tz/cur_freq"
     };
+
+    // Expanded available frequency paths across kgsl, devfreq, and vendor nodes
     private static final String[] GPU_AVAILABLE_FREQUENCIES_PATHS = {
             "/sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies",
-            "/sys/class/devfreq/kgsl-3d0/available_frequencies"
+            "/sys/class/devfreq/kgsl-3d0/available_frequencies",
+            "/sys/class/devfreq/3d00000.gpu/available_frequencies",
+            "/sys/class/devfreq/msm-adreno-tz/available_frequencies",
+            "/sys/class/kgsl/kgsl-3d0/freq_table_mhz",
+            "/sys/class/kgsl/kgsl-3d0/gpu_available_frequencies"
     };
+
+    // Expanded max frequency paths
     private static final String[] GPU_MAX_FREQUENCY_PATHS = {
             "/sys/class/kgsl/kgsl-3d0/devfreq/max_freq",
-            "/sys/class/devfreq/kgsl-3d0/max_freq"
+            "/sys/class/devfreq/kgsl-3d0/max_freq",
+            "/sys/class/devfreq/3d00000.gpu/max_freq",
+            "/sys/class/devfreq/msm-adreno-tz/max_freq",
+            "/sys/class/kgsl/kgsl-3d0/max_gpuclk"
     };
 
     static {
@@ -88,10 +112,11 @@ public class MainActivity extends Activity {
         turboStatusText = findViewById(R.id.textTurboStatus);
 
         TextView gpuModelText = findViewById(R.id.textGpuModel);
-        String gpuModel = readFirstAvailable(GPU_MODEL_PATHS);
+        String gpuModel = detectGpuModel();
         gpuModelText.setText(gpuModel == null
                 ? getString(R.string.gpu_not_detected)
                 : getString(R.string.gpu_model, gpuModel));
+
         frequencyAvailable = firstExistingPath(GPU_FREQUENCY_PATHS) != null;
         if (!frequencyAvailable) {
             gpuFrequencyText.setText(R.string.frequency_unavailable);
@@ -155,65 +180,127 @@ public class MainActivity extends Activity {
             return;
         }
 
-        try {
-            long hertz = Long.parseLong(value.trim().split("\\s+")[0]);
-            gpuFrequencyText.setText(getString(R.string.frequency, hertz / 1_000_000L));
-        } catch (NumberFormatException ignored) {
+        Long mhz = parseToMHz(value);
+        if (mhz != null && mhz > 0) {
+            gpuFrequencyText.setText(getString(R.string.frequency, mhz));
+        } else {
             gpuFrequencyText.setText(R.string.frequency_unavailable);
         }
     }
 
     private void updateDriverLimit() {
-        String availableFrequencies = readFirstAvailableContent(GPU_AVAILABLE_FREQUENCIES_PATHS);
-        Long maxFrequency = parseFrequency(readFirstAvailable(GPU_MAX_FREQUENCY_PATHS));
+        String availableFrequenciesContent = readFirstAvailableContent(GPU_AVAILABLE_FREQUENCIES_PATHS);
+        Long maxFrequencyMhz = parseToMHz(readFirstAvailable(GPU_MAX_FREQUENCY_PATHS));
 
-        if (availableFrequencies == null && maxFrequency == null) {
+        String availableFrequenciesMHzStr = formatFrequenciesToMHz(availableFrequenciesContent);
+
+        if (availableFrequenciesMHzStr == null && maxFrequencyMhz == null) {
             driverLimitText.setText(R.string.driver_limit_unavailable);
             return;
         }
 
-        String availableFrequenciesMHz = formatFrequencies(availableFrequencies);
-        if (maxFrequency == null) {
-            driverLimitText.setText(getString(R.string.driver_limit_available_only, availableFrequenciesMHz));
-        } else if (availableFrequenciesMHz == null) {
-            driverLimitText.setText(getString(R.string.driver_limit_max_only, maxFrequency / 1_000_000L));
+        if (maxFrequencyMhz == null) {
+            driverLimitText.setText(getString(R.string.driver_limit_available_only, availableFrequenciesMHzStr));
+        } else if (availableFrequenciesMHzStr == null) {
+            driverLimitText.setText(getString(R.string.driver_limit_max_only, maxFrequencyMhz));
         } else {
             driverLimitText.setText(getString(
                     R.string.driver_limit,
-                    maxFrequency / 1_000_000L,
-                    availableFrequenciesMHz));
+                    maxFrequencyMhz,
+                    availableFrequenciesMHzStr));
         }
     }
 
-    private static Long parseFrequency(String value) {
-        if (value == null) {
+    /**
+     * Tries sysfs nodes first, and falls back to system properties if necessary.
+     */
+    private String detectGpuModel() {
+        String sysfsModel = readFirstAvailable(GPU_MODEL_PATHS);
+        if (sysfsModel != null && !sysfsModel.isEmpty()) {
+            return sysfsModel;
+        }
+
+        // Fallback to system properties if sysfs is inaccessible
+        String egl = getSystemProperty("ro.hardware.egl");
+        if (egl != null && egl.toLowerCase().contains("adreno")) {
+            return egl;
+        }
+
+        String soc = getSystemProperty("ro.soc.model");
+        if (soc != null && !soc.isEmpty()) {
+            return soc;
+        }
+
+        String platform = getSystemProperty("ro.board.platform");
+        if (platform != null && !platform.isEmpty()) {
+            return platform;
+        }
+
+        return null;
+    }
+
+    /**
+     * Smart frequency parser that detects whether the raw value is in Hz, kHz, or MHz
+     * and converts it to MHz.
+     */
+    public static Long parseToMHz(String value) {
+        if (value == null || value.trim().isEmpty()) {
             return null;
         }
 
         try {
-            return Long.parseLong(value.trim().split("\\s+")[0]);
+            String firstToken = value.trim().split("\\s+")[0];
+            long rawValue = Long.parseLong(firstToken);
+            if (rawValue <= 0) {
+                return null;
+            }
+
+            // Hz range: e.g. 800,000,000 Hz -> 800 MHz
+            if (rawValue >= 100_000_000L) {
+                return rawValue / 1_000_000L;
+            }
+            // kHz range: e.g. 800,000 kHz -> 800 MHz
+            if (rawValue >= 100_000L) {
+                return rawValue / 1_000L;
+            }
+            // MHz range: e.g. 800 MHz
+            return rawValue;
         } catch (NumberFormatException ignored) {
             return null;
         }
     }
 
-    private static String formatFrequencies(String values) {
-        if (values == null) {
+    /**
+     * Parses single-line or multi-line space-separated/newline-separated frequency lists,
+     * converts all valid values to MHz, sorts them numerically, and formats as a comma-separated string.
+     */
+    public static String formatFrequenciesToMHz(String values) {
+        if (values == null || values.trim().isEmpty()) {
             return null;
         }
 
-        StringBuilder formatted = new StringBuilder();
-        for (String value : values.trim().split("\\s+")) {
-            Long frequency = parseFrequency(value);
-            if (frequency == null) {
-                continue;
+        List<Long> mhzList = new ArrayList<>();
+        String[] tokens = values.trim().split("\\s+");
+        for (String token : tokens) {
+            Long mhz = parseToMHz(token);
+            if (mhz != null && mhz > 0 && !mhzList.contains(mhz)) {
+                mhzList.add(mhz);
             }
-            if (formatted.length() > 0) {
-                formatted.append(", ");
-            }
-            formatted.append(frequency / 1_000_000L);
         }
-        return formatted.length() == 0 ? null : formatted.toString();
+
+        if (mhzList.isEmpty()) {
+            return null;
+        }
+
+        Collections.sort(mhzList);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < mhzList.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(mhzList.get(i));
+        }
+        return sb.toString();
     }
 
     private static String firstExistingPath(String[] paths) {
@@ -258,5 +345,15 @@ public class MainActivity extends Activity {
             }
         }
         return null;
+    }
+
+    private static String getSystemProperty(String propName) {
+        try {
+            Class<?> clazz = Class.forName("android.os.SystemProperties");
+            Method getMethod = clazz.getMethod("get", String.class);
+            return (String) getMethod.invoke(null, propName);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 }
