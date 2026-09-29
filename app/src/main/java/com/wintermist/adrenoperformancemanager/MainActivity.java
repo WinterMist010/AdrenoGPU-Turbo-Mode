@@ -112,6 +112,13 @@ public class MainActivity extends Activity {
 
     private native int EnableTurbo();
     private native int DisableTurbo();
+    private native int SetPowerConstraint(int type, int level);
+
+    private static final int KGSL_CONSTRAINT_NONE = 0;
+    private static final int KGSL_CONSTRAINT_PWRLEVEL = 1;
+    // KGSL_CONSTRAINT_PWR_MIN (0) sets min frequency; KGSL_CONSTRAINT_PWR_MAX (1) sets max frequency
+    private static final int KGSL_CONSTRAINT_PWR_MIN = 0;
+    private static final int KGSL_CONSTRAINT_PWR_MAX = 1;
 
     private final Handler frequencyHandler = new Handler(Looper.getMainLooper());
     private TextView gpuFrequencyText;
@@ -120,11 +127,13 @@ public class MainActivity extends Activity {
     private TextView turboStatusText;
     private TextView governorStatusText;
     private TextView pwrlevelStatusText;
+    private Spinner pwrConstraintSpinner;
     private Spinner governorSpinner;
     private Spinner minFreqSpinner;
     private Spinner maxFreqSpinner;
     private MaterialButton enableButton;
     private MaterialButton disableButton;
+    private MaterialButton applyPwrConstraintButton;
     private MaterialButton applyGovButton;
     private MaterialButton applyFreqButton;
     private boolean frequencyAvailable;
@@ -163,9 +172,11 @@ public class MainActivity extends Activity {
         turboStatusText = findViewById(R.id.textTurboStatus);
         governorStatusText = findViewById(R.id.textGovernorStatus);
         pwrlevelStatusText = findViewById(R.id.textPwrlevelStatus);
+        pwrConstraintSpinner = findViewById(R.id.spinnerPwrConstraint);
         governorSpinner = findViewById(R.id.spinnerGovernor);
         minFreqSpinner = findViewById(R.id.spinnerMinFreq);
         maxFreqSpinner = findViewById(R.id.spinnerMaxFreq);
+        applyPwrConstraintButton = findViewById(R.id.button_apply_pwr_constraint);
         applyGovButton = findViewById(R.id.button_apply_governor);
         applyFreqButton = findViewById(R.id.button_apply_freq);
 
@@ -181,6 +192,7 @@ public class MainActivity extends Activity {
         }
         updateDriverLimit();
         updateTemperature();
+        setupPwrConstraintControls();
         setupGovernorControls();
         setupFrequencyControls();
         updatePowerLevel();
@@ -188,6 +200,7 @@ public class MainActivity extends Activity {
         findViewById(R.id.button_about).setOnClickListener(view -> showAboutDialog());
         enableButton.setOnClickListener(view -> changeTurbo(true));
         disableButton.setOnClickListener(view -> changeTurbo(false));
+        applyPwrConstraintButton.setOnClickListener(view -> applyPwrConstraintSelection());
         applyGovButton.setOnClickListener(view -> applyGovernorSelection());
         applyFreqButton.setOnClickListener(view -> applyFreqLimitsSelection());
 
@@ -363,6 +376,42 @@ public class MainActivity extends Activity {
         } else {
             maxFreqSpinner.setSelection(freqs.size() - 1);
         }
+    }
+
+    private void setupPwrConstraintControls() {
+        List<String> options = new ArrayList<>();
+        options.add(getString(R.string.pwr_constraint_default));
+        options.add(getString(R.string.pwr_constraint_max));
+        options.add(getString(R.string.pwr_constraint_min));
+
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, options);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        pwrConstraintSpinner.setAdapter(adapter);
+    }
+
+    private void applyPwrConstraintSelection() {
+        int pos = pwrConstraintSpinner.getSelectedItemPosition();
+        int type;
+        int level = 0;
+
+        if (pos == 1) { // Max performance
+            type = KGSL_CONSTRAINT_PWRLEVEL;
+            level = KGSL_CONSTRAINT_PWR_MAX;
+        } else if (pos == 2) { // Power saver
+            type = KGSL_CONSTRAINT_PWRLEVEL;
+            level = KGSL_CONSTRAINT_PWR_MIN;
+        } else { // Default / Reset
+            type = KGSL_CONSTRAINT_NONE;
+            level = 0;
+        }
+
+        int res = SetPowerConstraint(type, level);
+        if (res == 0) {
+            Toast.makeText(this, R.string.pwr_constraint_success, Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, R.string.pwr_constraint_failed, Toast.LENGTH_SHORT).show();
+        }
+        updatePowerLevel();
     }
 
     private void updatePowerLevel() {
