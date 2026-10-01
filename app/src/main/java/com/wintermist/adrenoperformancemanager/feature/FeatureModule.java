@@ -28,6 +28,6 @@ public interface FeatureModule {
     boolean isSupported(PrivilegeBackend backend);
     String snapshot(PrivilegeBackend backend);
     boolean apply(PrivilegeBackend backend, String config);
-    boolean rollback(PrivilegeBackend backend);
+    boolean rollback(PrivilegeBackend backend, String snapshot);
     Status status();
 }

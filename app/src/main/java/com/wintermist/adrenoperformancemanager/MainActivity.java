@@ -1,6 +1,7 @@
 package com.wintermist.adrenoperformancemanager;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
@@ -29,6 +30,7 @@ import com.wintermist.adrenoperformancemanager.privilege.NoneBackend;
 import com.wintermist.adrenoperformancemanager.privilege.PrivilegeBackend;
 import com.wintermist.adrenoperformancemanager.privilege.RootBackend;
 import com.wintermist.adrenoperformancemanager.privilege.ShizukuBackend;
+import com.wintermist.adrenoperformancemanager.service.ForegroundMonitorService;
 
 import rikka.shizuku.Shizuku;
 
@@ -110,7 +112,7 @@ public class MainActivity extends Activity {
             "/sys/class/kgsl/kgsl-3d0/devfreq/available_governors",
             "/sys/class/devfreq/kgsl-3d0/available_governors",
             "/sys/class/devfreq/3d00000.gpu/available_governors",
-            "/sys/class/devfreq/msm-adreno-tz/available_governors"
+            "/sys/class/devfreq/msm-adreno-tz/governor"
     };
 
     private static final String[] GPU_PWRLEVEL_PATHS = {
@@ -174,6 +176,7 @@ public class MainActivity extends Activity {
     private NoneBackend noneBackend;
     private FeatureManager featureManager;
     private CapabilityReporter capabilityReporter;
+    private RootKgslFeature rootKgslFeature;
 
     private final Runnable frequencyUpdater = new Runnable() {
         @Override
@@ -215,6 +218,7 @@ public class MainActivity extends Activity {
             activeTierText.setText("Active Tier: " + activeBackend.getTier().getDescription() + " (UID " + activeBackend.getUid() + ")");
         }
         updateCapabilityScreen();
+        ForegroundMonitorService.setThermalSafeguardParams(activeBackend, rootKgslFeature);
     }
 
     private void updateCapabilityScreen() {
@@ -222,9 +226,18 @@ public class MainActivity extends Activity {
         StringBuilder sb = new StringBuilder();
         for (FeatureModule feature : featureManager.getAllFeatures()) {
             boolean supported = feature.isSupported(activeBackend);
+            String unlockGuide = "";
+            if (!supported) {
+                if (feature.requiredPrivilege() == PrivilegeBackend.Tier.ROOT) {
+                    unlockGuide = " -> How to unlock: Grant root access via Magisk or KernelSU.";
+                } else if (feature.requiredPrivilege() == PrivilegeBackend.Tier.SHELL) {
+                    unlockGuide = " -> How to unlock: Start Shizuku service and grant ADB permission.";
+                }
+            }
             sb.append("• ").append(feature.name()).append(": ")
                     .append(supported ? "AVAILABLE" : "LOCKED")
                     .append(" (Requires ").append(feature.requiredPrivilege().name()).append(")")
+                    .append(unlockGuide)
                     .append("\n");
         }
         capabilityDetailsText.setText(sb.toString().trim());
@@ -238,12 +251,24 @@ public class MainActivity extends Activity {
 
         rootBackend = new RootBackend();
         shizukuBackend = new ShizukuBackend(this);
+        shizukuBackend.setOnConnectionListener(new ShizukuBackend.OnConnectionListener() {
+            @Override
+            public void onServiceConnected() {
+                runOnUiThread(() -> detectActiveBackend());
+            }
+
+            @Override
+            public void onServiceDisconnected() {
+                runOnUiThread(() -> detectActiveBackend());
+            }
+        });
         noneBackend = new NoneBackend();
 
         featureManager = new FeatureManager(this);
+        rootKgslFeature = new RootKgslFeature();
         featureManager.registerFeature(new GameModeFeature());
         featureManager.registerFeature(new FixedPerformanceModeFeature());
-        featureManager.registerFeature(new RootKgslFeature());
+        featureManager.registerFeature(rootKgslFeature);
         featureManager.registerFeature(new ExperimentalFeatures.ThermalOverrideFeature());
         featureManager.registerFeature(new ExperimentalFeatures.SkiaVkRendererFeature());
         featureManager.registerFeature(new ExperimentalFeatures.PerAppAngleFeature());
@@ -280,6 +305,12 @@ public class MainActivity extends Activity {
         expSkiavkButton = findViewById(R.id.button_exp_skiavk);
 
         detectActiveBackend();
+
+        // Start ForegroundMonitorService for background thermal safeguard
+        try {
+            startService(new Intent(this, ForegroundMonitorService.class));
+        } catch (Exception ignored) {
+        }
 
         TextView gpuModelText = findViewById(R.id.textGpuModel);
         String gpuModel = detectGpuModel();
@@ -383,6 +414,9 @@ public class MainActivity extends Activity {
         boolean ok = featureManager.applyFeature("game_mode_profile", activeBackend, config);
         Toast.makeText(this, ok ? "Game profile applied! Restart game to take effect." : "Failed to apply profile (requires Shizuku/Root)", Toast.LENGTH_LONG).show();
 
+        // Optionally grant WRITE_SECURE_SETTINGS for settings-based persistence
+        ForegroundMonitorService.grantWriteSecureSettings(activeBackend, pkg);
+
         // Update metrics text
         double temp = GpuMonitor.readGpuTemperature(activeBackend);
         metricsBeforeAfterText.setText(String.format(Locale.US, "p95 Frame Time: -- ms | GPU Temp: %.1f °C", temp > 0 ? temp : 0.0));
@@ -391,10 +425,16 @@ public class MainActivity extends Activity {
     @Override
     protected void onStart() {
         super.onStart();
-        detectActiveBackend();
+        updateShizukuStatus();
         if (frequencyAvailable) {
             frequencyHandler.post(frequencyUpdater);
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateShizukuStatus();
     }
 
     @Override
@@ -415,7 +455,7 @@ public class MainActivity extends Activity {
         detectActiveBackend();
         if (!Shizuku.pingBinder()) {
             shizukuStatusText.setText(R.string.shizuku_status_not_running);
-            requestShizukuPermissionButton.setEnabled(false);
+            requestShizukuPermissionButton.setEnabled(true);
             return;
         }
 
@@ -431,10 +471,14 @@ public class MainActivity extends Activity {
 
     private void requestShizukuPermission() {
         if (Shizuku.pingBinder()) {
-            if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
-                Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE);
-            } else {
-                updateShizukuStatus();
+            try {
+                if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
+                    Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE);
+                } else {
+                    updateShizukuStatus();
+                }
+            } catch (Exception e) {
+                Toast.makeText(this, "Failed to request Shizuku permission: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         } else {
             Toast.makeText(this, R.string.shizuku_status_not_running, Toast.LENGTH_SHORT).show();
@@ -485,6 +529,11 @@ public class MainActivity extends Activity {
         double temp = GpuMonitor.readGpuTemperature(activeBackend);
         if (temp > 0) {
             gpuTempText.setText(getString(R.string.gpu_temp, String.format(Locale.US, "%.1f °C", temp)));
+
+            // Thermal Safeguard Enforcement
+            if (rootKgslFeature != null && !rootKgslFeature.checkThermalSafeguard(temp, activeBackend)) {
+                Toast.makeText(this, "Thermal safeguard triggered (>80°C). Reverting GPU tuning.", Toast.LENGTH_LONG).show();
+            }
         } else {
             gpuTempText.setText(R.string.gpu_temp_unavailable);
         }

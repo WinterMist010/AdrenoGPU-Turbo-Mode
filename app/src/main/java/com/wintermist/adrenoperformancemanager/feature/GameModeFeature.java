@@ -53,7 +53,7 @@ public class GameModeFeature implements FeatureModule {
     @Override
     public String snapshot(PrivilegeBackend backend) {
         if (activePackage == null) return null;
-        return backend.executeCommand("device_config get game_overlay " + activePackage);
+        return activePackage + ":" + backend.executeCommand("device_config get game_overlay " + activePackage);
     }
 
     @Override
@@ -64,42 +64,55 @@ public class GameModeFeature implements FeatureModule {
             return false;
         }
 
-        String[] parts = configStr.split(":");
-        String packageName = parts[0];
-        if (!ShellUtils.isValidPackageName(packageName)) {
+        try {
+            String[] parts = configStr.split(":");
+            String packageName = parts[0];
+            if (!ShellUtils.isValidPackageName(packageName)) {
+                status = Status.ERROR;
+                return false;
+            }
+
+            int mode = parts.length > 1 ? Integer.parseInt(parts[1]) : 2;
+            int fps = parts.length > 2 ? Integer.parseInt(parts[2]) : 60;
+            double downscale = parts.length > 3 ? Double.parseDouble(parts[3]) : 1.0;
+            boolean useAngle = parts.length > 4 && Boolean.parseBoolean(parts[4]); // Default false
+
+            if (!validateFps(fps)) {
+                status = Status.ERROR;
+                return false;
+            }
+
+            this.activePackage = packageName;
+
+            String overlayCmd = ShellUtils.buildGameOverlayCommand(packageName, mode, fps, downscale, useAngle);
+            String gameModeCmd = ShellUtils.buildGameModeCommand(packageName, mode);
+
+            String overlayRes = backend.executeCommand(overlayCmd);
+            String modeRes = backend.executeCommand(gameModeCmd);
+
+            boolean ok = !overlayRes.startsWith("ERROR") && !modeRes.startsWith("ERROR");
+            status = ok ? Status.APPLIED : Status.ERROR;
+            return ok;
+        } catch (Exception e) {
             status = Status.ERROR;
             return false;
         }
-
-        int mode = parts.length > 1 ? Integer.parseInt(parts[1]) : 2;
-        int fps = parts.length > 2 ? Integer.parseInt(parts[2]) : 60;
-        double downscale = parts.length > 3 ? Double.parseDouble(parts[3]) : 1.0;
-        boolean useAngle = parts.length > 4 && Boolean.parseBoolean(parts[4]); // Default false
-
-        if (!validateFps(fps)) {
-            status = Status.ERROR;
-            return false;
-        }
-
-        this.activePackage = packageName;
-
-        String overlayCmd = ShellUtils.buildGameOverlayCommand(packageName, mode, fps, downscale, useAngle);
-        String gameModeCmd = ShellUtils.buildGameModeCommand(packageName, mode);
-
-        String overlayRes = backend.executeCommand(overlayCmd);
-        String modeRes = backend.executeCommand(gameModeCmd);
-
-        boolean ok = !overlayRes.startsWith("ERROR") && !modeRes.startsWith("ERROR");
-        status = ok ? Status.APPLIED : Status.ERROR;
-        return ok;
     }
 
     @Override
-    public boolean rollback(PrivilegeBackend backend) {
-        if (activePackage == null) return true;
+    public boolean rollback(PrivilegeBackend backend, String snapshot) {
+        String targetPkg = activePackage;
+        if (targetPkg == null && snapshot != null && snapshot.contains(":")) {
+            targetPkg = snapshot.split(":")[0];
+        }
 
-        String resetCmd = "device_config delete game_overlay " + activePackage;
-        String resetModeCmd = ShellUtils.buildGameModeCommand(activePackage, 1); // 1 = Standard/Off
+        if (targetPkg == null || !ShellUtils.isValidPackageName(targetPkg)) {
+            status = Status.AVAILABLE;
+            return true;
+        }
+
+        String resetCmd = "device_config delete game_overlay " + targetPkg;
+        String resetModeCmd = ShellUtils.buildGameModeCommand(targetPkg, 1); // 1 = Standard/Off
 
         backend.executeCommand(resetCmd);
         backend.executeCommand(resetModeCmd);

@@ -66,7 +66,7 @@ public class GameModeFeatureTest {
         gameModeFeature.apply(shellBackend, "com.example.game:2:60:1.0:false");
         shellBackend.executedCommands.clear();
 
-        boolean rolledBack = gameModeFeature.rollback(shellBackend);
+        boolean rolledBack = gameModeFeature.rollback(shellBackend, "com.example.game:mode=2");
         assertTrue(rolledBack);
         assertEquals(FeatureModule.Status.AVAILABLE, gameModeFeature.status());
 

@@ -12,21 +12,33 @@ import rikka.shizuku.Shizuku;
 
 public class ShizukuBackend implements PrivilegeBackend {
 
+    public interface OnConnectionListener {
+        void onServiceConnected();
+        void onServiceDisconnected();
+    }
+
     private final Context context;
     private IUserService userService;
     private boolean isBound = false;
+    private OnConnectionListener connectionListener;
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             userService = IUserService.Stub.asInterface(service);
             isBound = true;
+            if (connectionListener != null) {
+                connectionListener.onServiceConnected();
+            }
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
             userService = null;
             isBound = false;
+            if (connectionListener != null) {
+                connectionListener.onServiceDisconnected();
+            }
         }
     };
 
@@ -37,6 +49,10 @@ public class ShizukuBackend implements PrivilegeBackend {
         this.userServiceArgs = new Shizuku.UserServiceArgs(
                 new ComponentName(this.context, ShizukuUserService.class)
         ).daemon(false).processNameSuffix("service").debuggable(false).version(1);
+    }
+
+    public void setOnConnectionListener(OnConnectionListener listener) {
+        this.connectionListener = listener;
     }
 
     public void bindService() {

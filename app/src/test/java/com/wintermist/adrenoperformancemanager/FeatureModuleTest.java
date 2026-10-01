@@ -54,8 +54,8 @@ public class FeatureModuleTest {
         }
 
         @Override
-        public boolean rollback(PrivilegeBackend backend) {
-            this.currentConfig = "default";
+        public boolean rollback(PrivilegeBackend backend, String snapshot) {
+            this.currentConfig = snapshot != null ? snapshot : "default";
             this.status = Status.AVAILABLE;
             return true;
         }

@@ -49,7 +49,7 @@ public class FixedPerformanceModeFeature implements FeatureModule {
     }
 
     @Override
-    public boolean rollback(PrivilegeBackend backend) {
+    public boolean rollback(PrivilegeBackend backend, String snapshot) {
         return apply(backend, "false");
     }
 

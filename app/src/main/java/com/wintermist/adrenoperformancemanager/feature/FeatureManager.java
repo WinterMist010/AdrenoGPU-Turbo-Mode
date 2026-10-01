@@ -93,7 +93,8 @@ public class FeatureManager {
         FeatureModule feature = modules.get(id);
         if (feature == null) return false;
 
-        boolean success = feature.rollback(backend);
+        String snapshot = getPersistedSnapshot(id);
+        boolean success = feature.rollback(backend, snapshot);
         if (success) {
             clearPersistedSnapshot(id);
         }
@@ -103,8 +104,9 @@ public class FeatureManager {
     public boolean rollbackAll(PrivilegeBackend backend) {
         boolean allSuccess = true;
         for (FeatureModule feature : modules.values()) {
-            if (getPersistedSnapshot(feature.id()) != null || feature.status() == FeatureModule.Status.APPLIED) {
-                boolean success = feature.rollback(backend);
+            String snapshot = getPersistedSnapshot(feature.id());
+            if (snapshot != null || feature.status() == FeatureModule.Status.APPLIED) {
+                boolean success = feature.rollback(backend, snapshot);
                 if (success) {
                     clearPersistedSnapshot(feature.id());
                 } else {

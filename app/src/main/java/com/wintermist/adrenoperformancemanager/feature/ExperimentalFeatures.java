@@ -23,16 +23,21 @@ public class ExperimentalFeatures {
 
         @Override
         public boolean apply(PrivilegeBackend backend, String config) {
-            int statusLevel = config != null ? Integer.parseInt(config) : 0;
-            String cmd = "cmd thermalservice override-status " + statusLevel;
-            String res = backend.executeCommand(cmd);
-            boolean ok = !res.startsWith("ERROR");
-            status = ok ? Status.APPLIED : Status.ERROR;
-            return ok;
+            try {
+                int statusLevel = config != null ? Integer.parseInt(config) : 0;
+                String cmd = "cmd thermalservice override-status " + statusLevel;
+                String res = backend.executeCommand(cmd);
+                boolean ok = !res.startsWith("ERROR");
+                status = ok ? Status.APPLIED : Status.ERROR;
+                return ok;
+            } catch (Exception e) {
+                status = Status.ERROR;
+                return false;
+            }
         }
 
         @Override
-        public boolean rollback(PrivilegeBackend backend) {
+        public boolean rollback(PrivilegeBackend backend, String snapshot) {
             String cmd = "cmd thermalservice reset";
             backend.executeCommand(cmd);
             status = Status.AVAILABLE;
@@ -67,8 +72,9 @@ public class ExperimentalFeatures {
         }
 
         @Override
-        public boolean rollback(PrivilegeBackend backend) {
-            String cmd = "setprop debug.hwui.renderer opengl";
+        public boolean rollback(PrivilegeBackend backend, String snapshot) {
+            String restoreVal = (snapshot != null && !snapshot.isEmpty()) ? snapshot : "opengl";
+            String cmd = "setprop debug.hwui.renderer " + restoreVal;
             backend.executeCommand(cmd);
             status = Status.AVAILABLE;
             return true;
@@ -91,7 +97,7 @@ public class ExperimentalFeatures {
             return backend != null && backend.isAvailable() && backend.getTier().getLevel() <= 2;
         }
 
-        @Override public String snapshot(PrivilegeBackend backend) { return null; }
+        @Override public String snapshot(PrivilegeBackend backend) { return targetPkg; }
 
         @Override
         public boolean apply(PrivilegeBackend backend, String pkgName) {
@@ -105,9 +111,10 @@ public class ExperimentalFeatures {
         }
 
         @Override
-        public boolean rollback(PrivilegeBackend backend) {
-            if (targetPkg != null && !targetPkg.isEmpty()) {
-                String cmd = "device_config delete game_overlay " + targetPkg;
+        public boolean rollback(PrivilegeBackend backend, String snapshot) {
+            String pkg = targetPkg != null ? targetPkg : snapshot;
+            if (pkg != null && !pkg.isEmpty()) {
+                String cmd = "device_config delete game_overlay " + pkg;
                 backend.executeCommand(cmd);
             }
             status = Status.AVAILABLE;

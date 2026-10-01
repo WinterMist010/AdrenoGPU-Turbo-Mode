@@ -52,7 +52,7 @@ public class RootKgslFeatureTest {
         assertEquals(FeatureModule.Status.APPLIED, fixedPerformanceFeature.status());
         assertTrue(shellBackend.executedCommands.contains("cmd power set-fixed-performance-mode-enabled true"));
 
-        boolean rolledBack = fixedPerformanceFeature.rollback(shellBackend);
+        boolean rolledBack = fixedPerformanceFeature.rollback(shellBackend, null);
         assertTrue(rolledBack);
         assertEquals(FeatureModule.Status.AVAILABLE, fixedPerformanceFeature.status());
         assertTrue(shellBackend.executedCommands.contains("cmd power set-fixed-performance-mode-enabled false"));

@@ -36,6 +36,19 @@
             android:enabled="true"
             android:exported="true"
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+        <service
+            android:name=".shizuku.ShizukuUserService"
+            android:exported="true"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <service
+            android:name=".monitoring.MonitoringOverlayService"
+            android:exported="false" />
+
+        <service
+            android:name=".service.ForegroundMonitorService"
+            android:exported="false" />
     </application>
 
 </manifest>
