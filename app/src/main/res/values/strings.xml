@@ -47,4 +47,11 @@
     <string name="setting_updated">Setting updated successfully</string>
     <string name="setting_failed">Failed to update setting (read-only sysfs / root required)</string>
     <string name="about">Adreno Performance Manager allows monitoring and tuning Qualcomm Adreno GPU settings, frequency limits, governors, power constraints, and Turbo control.\n\n1. Turbo mode and KGSL power constraint controls are designed for Qualcomm Adreno GPUs, including newer A8XX devices.\n2. Turbo mode and KGSL power constraints do not require ADB or root access. Advanced sysfs frequency tuning or governor changes may require root access depending on kernel permissions.\n3. Higher clock speeds and performance modes increase power consumption and device temperature.\n4. GPU drivers and sysfs interfaces differ across Android vendor kernels.\n\nUses libadrenotools\nhttps://github.com/bylaws/libadrenotools/</string>
+
+    <string name="shizuku_card_title">ADB via Shizuku Service</string>
+    <string name="shizuku_status_checking">Checking Shizuku ADB service status…</string>
+    <string name="shizuku_status_not_running">Shizuku service is not running. Please start Shizuku.</string>
+    <string name="shizuku_status_permission_denied">Shizuku service running. Permission requested or denied.</string>
+    <string name="shizuku_status_authorized">Shizuku ADB service connected and authorized.</string>
+    <string name="shizuku_request_permission">Request ADB Permission</string>
 </resources>

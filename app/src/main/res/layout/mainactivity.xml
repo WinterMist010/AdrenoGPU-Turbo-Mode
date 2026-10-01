@@ -216,6 +216,53 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Shizuku ADB Status Card -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/shizuku_card"
+            style="@style/Widget.Material3.CardView.Filled"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/pwr_constraint_card">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/shizuku_card_title"
+                    android:textAppearance="?attr/textAppearanceTitleMedium"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/textShizukuStatus"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/shizuku_status_checking"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/button_shizuku_permission"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/shizuku_request_permission" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- GPU Governor Card -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/governor_card"
@@ -228,7 +275,7 @@
             app:strokeWidth="0dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/pwr_constraint_card">
+            app:layout_constraintTop_toBottomOf="@id/shizuku_card">
 
             <LinearLayout
                 android:layout_width="match_parent"

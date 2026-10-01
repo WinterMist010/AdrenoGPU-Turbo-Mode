@@ -2,6 +2,7 @@ package com.wintermist.adrenoperformancemanager;
 
 import android.app.Activity;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -14,6 +15,8 @@ import android.widget.Toast;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+
+import rikka.shizuku.Shizuku;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -29,6 +32,7 @@ public class MainActivity extends Activity {
     private static final String PREFS_NAME = "Preferences";
     private static final String KEY_FIRST_RUN = "isFirstRun";
     private static final long FREQUENCY_REFRESH_MS = 1300L;
+    private static final int SHIZUKU_PERMISSION_REQUEST_CODE = 1001;
 
     // Expanded GPU model sysfs paths
     private static final String[] GPU_MODEL_PATHS = {
@@ -127,6 +131,8 @@ public class MainActivity extends Activity {
     private TextView turboStatusText;
     private TextView governorStatusText;
     private TextView pwrlevelStatusText;
+    private TextView shizukuStatusText;
+    private MaterialButton requestShizukuPermissionButton;
     private Spinner pwrConstraintSpinner;
     private Spinner governorSpinner;
     private Spinner minFreqSpinner;
@@ -147,6 +153,14 @@ public class MainActivity extends Activity {
             if (frequencyAvailable) {
                 frequencyHandler.postDelayed(this, FREQUENCY_REFRESH_MS);
             }
+        }
+    };
+
+    private final Shizuku.OnBinderReceivedListener binderReceivedListener = this::updateShizukuStatus;
+    private final Shizuku.OnBinderDeadListener binderDeadListener = this::updateShizukuStatus;
+    private final Shizuku.OnRequestPermissionResultListener requestPermissionResultListener = (requestCode, grantResult) -> {
+        if (requestCode == SHIZUKU_PERMISSION_REQUEST_CODE) {
+            updateShizukuStatus();
         }
     };
 
@@ -179,6 +193,8 @@ public class MainActivity extends Activity {
         applyPwrConstraintButton = findViewById(R.id.button_apply_pwr_constraint);
         applyGovButton = findViewById(R.id.button_apply_governor);
         applyFreqButton = findViewById(R.id.button_apply_freq);
+        shizukuStatusText = findViewById(R.id.textShizukuStatus);
+        requestShizukuPermissionButton = findViewById(R.id.button_shizuku_permission);
 
         TextView gpuModelText = findViewById(R.id.textGpuModel);
         String gpuModel = detectGpuModel();
@@ -203,8 +219,14 @@ public class MainActivity extends Activity {
         applyPwrConstraintButton.setOnClickListener(view -> applyPwrConstraintSelection());
         applyGovButton.setOnClickListener(view -> applyGovernorSelection());
         applyFreqButton.setOnClickListener(view -> applyFreqLimitsSelection());
+        requestShizukuPermissionButton.setOnClickListener(view -> requestShizukuPermission());
+
+        Shizuku.addBinderReceivedListenerSticky(binderReceivedListener);
+        Shizuku.addBinderDeadListener(binderDeadListener);
+        Shizuku.addRequestPermissionResultListener(requestPermissionResultListener);
 
         updateButtons();
+        updateShizukuStatus();
 
         SharedPreferences preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         if (preferences.getBoolean(KEY_FIRST_RUN, true)) {
@@ -225,6 +247,43 @@ public class MainActivity extends Activity {
     protected void onStop() {
         frequencyHandler.removeCallbacks(frequencyUpdater);
         super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        Shizuku.removeBinderReceivedListener(binderReceivedListener);
+        Shizuku.removeBinderDeadListener(binderDeadListener);
+        Shizuku.removeRequestPermissionResultListener(requestPermissionResultListener);
+        super.onDestroy();
+    }
+
+    private void updateShizukuStatus() {
+        if (!Shizuku.pingBinder()) {
+            shizukuStatusText.setText(R.string.shizuku_status_not_running);
+            requestShizukuPermissionButton.setEnabled(false);
+            return;
+        }
+
+        if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+            shizukuStatusText.setText(R.string.shizuku_status_authorized);
+            requestShizukuPermissionButton.setEnabled(false);
+        } else {
+            shizukuStatusText.setText(R.string.shizuku_status_permission_denied);
+            requestShizukuPermissionButton.setEnabled(true);
+        }
+    }
+
+    private void requestShizukuPermission() {
+        if (Shizuku.pingBinder()) {
+            if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
+                Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE);
+            } else {
+                updateShizukuStatus();
+            }
+        } else {
+            Toast.makeText(this, R.string.shizuku_status_not_running, Toast.LENGTH_SHORT).show();
+            updateShizukuStatus();
+        }
     }
 
     private void changeTurbo(boolean enable) {
