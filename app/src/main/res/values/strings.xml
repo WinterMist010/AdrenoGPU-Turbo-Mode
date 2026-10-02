@@ -54,4 +54,12 @@
     <string name="shizuku_status_permission_denied">Shizuku service running. Permission requested or denied.</string>
     <string name="shizuku_status_authorized">Shizuku ADB service connected and authorized.</string>
     <string name="shizuku_request_permission">Request ADB Permission</string>
+
+    <string name="restore_defaults">Restore Defaults</string>
+    <string name="capability_screen_title">Device Capabilities &amp; Feature Tiers</string>
+    <string name="game_mode_section_title">Game Mode Profiles (Tier 2 - ADB/Shizuku)</string>
+    <string name="game_mode_honest_desc">Reduces GPU load / caps FPS (does not boost hardware clocks)</string>
+    <string name="experimental_section_title">Experimental Section (Effect Unverified)</string>
+    <string name="before_after_title">Before / After Performance Measurement</string>
+    <string name="export_report">Export Capability Report</string>
 </resources>
