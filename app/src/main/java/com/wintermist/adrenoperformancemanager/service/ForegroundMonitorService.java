@@ -10,6 +10,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import androidx.annotation.Nullable;
 
+import com.wintermist.adrenoperformancemanager.feature.FeatureManager;
 import com.wintermist.adrenoperformancemanager.feature.RootKgslFeature;
 import com.wintermist.adrenoperformancemanager.monitoring.GpuMonitor;
 import com.wintermist.adrenoperformancemanager.privilege.PrivilegeBackend;
@@ -20,19 +21,37 @@ public class ForegroundMonitorService extends Service {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private static PrivilegeBackend activeBackend;
     private static RootKgslFeature kgslFeature;
+    private static FeatureManager featureManager;
+    private String lastForegroundPackage;
 
-    public static void setThermalSafeguardParams(PrivilegeBackend backend, RootKgslFeature feature) {
+    public static void setThermalSafeguardParams(PrivilegeBackend backend, RootKgslFeature feature, FeatureManager manager) {
         activeBackend = backend;
         kgslFeature = feature;
+        featureManager = manager;
     }
 
-    private final Runnable thermalRunnable = new Runnable() {
+    private final Runnable monitorRunnable = new Runnable() {
         @Override
         public void run() {
-            if (activeBackend != null && kgslFeature != null && activeBackend.isAvailable()) {
-                double temp = GpuMonitor.readGpuTemperature(activeBackend);
-                if (temp > 0) {
-                    kgslFeature.checkThermalSafeguard(temp, activeBackend);
+            if (activeBackend != null && activeBackend.isAvailable()) {
+                // 1. Thermal safeguard check
+                if (kgslFeature != null) {
+                    double temp = GpuMonitor.readGpuTemperature(activeBackend);
+                    if (temp > 0) {
+                        kgslFeature.checkThermalSafeguard(temp, activeBackend);
+                    }
+                }
+
+                // 2. Foreground package profile monitoring & auto-reapply
+                String fgPkg = detectForegroundPackage(getApplicationContext(), activeBackend);
+                if (fgPkg != null && !fgPkg.equals(lastForegroundPackage)) {
+                    lastForegroundPackage = fgPkg;
+                    if (featureManager != null) {
+                        String snap = featureManager.getPersistedSnapshot("game_mode_profile");
+                        if (snap != null && snap.startsWith(fgPkg + ":")) {
+                            featureManager.applyFeature("game_mode_profile", activeBackend, snap);
+                        }
+                    }
                 }
             }
             handler.postDelayed(this, 3000L);
@@ -42,12 +61,12 @@ public class ForegroundMonitorService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        handler.post(thermalRunnable);
+        handler.post(monitorRunnable);
     }
 
     @Override
     public void onDestroy() {
-        handler.removeCallbacks(thermalRunnable);
+        handler.removeCallbacks(monitorRunnable);
         super.onDestroy();
     }
 

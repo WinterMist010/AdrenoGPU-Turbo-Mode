@@ -112,7 +112,7 @@ public class MainActivity extends Activity {
             "/sys/class/kgsl/kgsl-3d0/devfreq/available_governors",
             "/sys/class/devfreq/kgsl-3d0/available_governors",
             "/sys/class/devfreq/3d00000.gpu/available_governors",
-            "/sys/class/devfreq/msm-adreno-tz/governor"
+            "/sys/class/devfreq/msm-adreno-tz/available_governors"
     };
 
     private static final String[] GPU_PWRLEVEL_PATHS = {
@@ -218,7 +218,7 @@ public class MainActivity extends Activity {
             activeTierText.setText("Active Tier: " + activeBackend.getTier().getDescription() + " (UID " + activeBackend.getUid() + ")");
         }
         updateCapabilityScreen();
-        ForegroundMonitorService.setThermalSafeguardParams(activeBackend, rootKgslFeature);
+        ForegroundMonitorService.setThermalSafeguardParams(activeBackend, rootKgslFeature, featureManager);
     }
 
     private void updateCapabilityScreen() {
@@ -254,7 +254,11 @@ public class MainActivity extends Activity {
         shizukuBackend.setOnConnectionListener(new ShizukuBackend.OnConnectionListener() {
             @Override
             public void onServiceConnected() {
-                runOnUiThread(() -> detectActiveBackend());
+                runOnUiThread(() -> {
+                    detectActiveBackend();
+                    // Re-apply active profiles on Shizuku reconnect
+                    reapplyActiveProfiles();
+                });
             }
 
             @Override
@@ -376,6 +380,15 @@ public class MainActivity extends Activity {
         if (preferences.getBoolean(KEY_FIRST_RUN, true)) {
             showAboutDialog();
             preferences.edit().putBoolean(KEY_FIRST_RUN, false).apply();
+        }
+    }
+
+    private void reapplyActiveProfiles() {
+        for (FeatureModule feature : featureManager.getAllFeatures()) {
+            String snap = featureManager.getPersistedSnapshot(feature.id());
+            if (snap != null && feature.isSupported(activeBackend)) {
+                featureManager.applyFeature(feature.id(), activeBackend, snap);
+            }
         }
     }
 
@@ -684,7 +697,10 @@ public class MainActivity extends Activity {
         Object selected = governorSpinner.getSelectedItem();
         if (selected == null) return;
         String govName = selected.toString();
-        boolean success = writeFirstAvailable(GPU_GOVERNOR_PATHS, govName);
+        boolean success = featureManager.applyFeature("root_kgsl_control", activeBackend, govName + "::");
+        if (!success) {
+            success = writeFirstAvailable(GPU_GOVERNOR_PATHS, govName);
+        }
         Toast.makeText(this, success ? R.string.setting_updated : R.string.setting_failed, Toast.LENGTH_SHORT).show();
         setupGovernorControls();
     }
@@ -700,10 +716,14 @@ public class MainActivity extends Activity {
         long minHz = minMhz * 1_000_000L;
         long maxHz = maxMhz * 1_000_000L;
 
-        boolean minSuccess = writeFirstAvailable(GPU_MIN_FREQUENCY_PATHS, String.valueOf(minHz));
-        boolean maxSuccess = writeFirstAvailable(GPU_MAX_FREQUENCY_PATHS, String.valueOf(maxHz));
+        boolean success = featureManager.applyFeature("root_kgsl_control", activeBackend, ":" + minHz + ":" + maxHz);
+        if (!success) {
+            boolean minSuccess = writeFirstAvailable(GPU_MIN_FREQUENCY_PATHS, String.valueOf(minHz));
+            boolean maxSuccess = writeFirstAvailable(GPU_MAX_FREQUENCY_PATHS, String.valueOf(maxHz));
+            success = minSuccess || maxSuccess;
+        }
 
-        Toast.makeText(this, (minSuccess || maxSuccess) ? R.string.setting_updated : R.string.setting_failed, Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, success ? R.string.setting_updated : R.string.setting_failed, Toast.LENGTH_SHORT).show();
         updateDriverLimit();
     }
 

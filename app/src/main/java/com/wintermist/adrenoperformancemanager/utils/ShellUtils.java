@@ -56,6 +56,12 @@ public class ShellUtils {
         }
         String trimmed = command.trim();
 
+        // Disallow command chaining / execution operators
+        if (trimmed.contains(";") || trimmed.contains("&&") || trimmed.contains("||") ||
+                trimmed.contains("`") || trimmed.contains("$(") || trimmed.contains("\n")) {
+            return false;
+        }
+
         // Check against allowed command prefixes
         for (String prefix : ALLOWED_COMMAND_PREFIXES) {
             if (trimmed.startsWith(prefix)) {
