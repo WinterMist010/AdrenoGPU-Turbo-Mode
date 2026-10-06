@@ -60,6 +60,10 @@
     <string name="game_mode_section_title">Game Mode Profiles (Tier 2 - ADB/Shizuku)</string>
     <string name="game_mode_honest_desc">Reduces GPU load / caps FPS (does not boost hardware clocks)</string>
     <string name="experimental_section_title">Experimental Section (Effect Unverified)</string>
+    <string name="system_tweaks_title">Display &amp; System Performance Tweaks (Shizuku)</string>
+    <string name="refresh_rate_label">Force Display Refresh Rate</string>
+    <string name="window_blur_label">Disable Window Blurs</string>
+    <string name="aot_compile_label">AOT Speed-Profile Compile Game</string>
     <string name="before_after_title">Before / After Performance Measurement</string>
     <string name="export_report">Export Capability Report</string>
 </resources>
