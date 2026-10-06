@@ -72,9 +72,21 @@ public class ShizukuFeaturesTest {
         // Invalid package should fail
         assertFalse(feature.apply(shellBackend, "invalid_pkg;rm -rf /"));
 
-        // Valid package should issue compile command
+        // Success response parsing
+        assertTrue(AotCompileFeature.isSuccessResponse("Success"));
+        assertTrue(AotCompileFeature.isSuccessResponse("Performing speed-profile compilation for com.example.game\nSuccess"));
+        assertFalse(AotCompileFeature.isSuccessResponse("Error: package not found"));
+        assertFalse(AotCompileFeature.isSuccessResponse("Failure"));
+
+        // Valid package compile
         assertTrue(feature.apply(shellBackend, "com.example.game"));
         assertEquals(FeatureModule.Status.APPLIED, feature.status());
         assertTrue(shellBackend.executedCommands.contains("cmd package compile -m speed-profile -f com.example.game"));
+
+        // Rollback resets compilation state
+        boolean rolledBack = feature.rollback(shellBackend, "com.example.game");
+        assertTrue(rolledBack);
+        assertEquals(FeatureModule.Status.AVAILABLE, feature.status());
+        assertTrue(shellBackend.executedCommands.contains("cmd package compile --reset com.example.game"));
     }
 }

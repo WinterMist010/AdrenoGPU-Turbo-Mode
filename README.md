@@ -39,7 +39,7 @@ With Shizuku authorized, users gain seamless access to Android framework perform
 - **Android Game Mode & Overlay Profiles:** Configure per-app Game Mode (`Performance` / `Battery`) and FPS limits (`60`, `90`, `120`, `144 FPS`).
 - **Fixed Performance Mode:** System power-service policy requests to maintain consistent clock targets.
 - **Display & Rendering Tweaks:** Force display refresh rates (`peak_refresh_rate` / `min_refresh_rate`), toggle window blurs (`disable_window_blurs`), and adjust transition animation scales.
-- **Package Pre-Compilation:** Run ahead-of-time (AOT) profile compilation (`cmd package compile -m speed-profile`) to reduce Java-side stutter in demanding games.
+- **Package Pre-Compilation:** Run ahead-of-time (AOT) profile compilation (`cmd package compile -m speed-profile`) to optimize Java/Kotlin ART bytecode. This improves launch times and reduces Java-side UI jank (does not affect C++ native engine code or GPU shader compilation and may be reset by system updates/background dexopt).
 
 ---
 

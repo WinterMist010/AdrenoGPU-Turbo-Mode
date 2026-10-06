@@ -393,8 +393,17 @@ public class MainActivity extends Activity {
                 Toast.makeText(this, "Enter package name in Game Mode card first", Toast.LENGTH_SHORT).show();
                 return;
             }
-            boolean ok = featureManager.applyFeature("aot_compile_game", activeBackend, pkg);
-            Toast.makeText(this, ok ? "AOT Compilation started for " + pkg : "Failed (requires Shizuku/ADB)", Toast.LENGTH_SHORT).show();
+
+            aotCompileButton.setEnabled(false);
+            Toast.makeText(this, "Compiling " + pkg + " in background...", Toast.LENGTH_SHORT).show();
+
+            new Thread(() -> {
+                boolean ok = featureManager.applyFeature("aot_compile_game", activeBackend, pkg);
+                runOnUiThread(() -> {
+                    aotCompileButton.setEnabled(true);
+                    Toast.makeText(this, ok ? "AOT compilation succeeded for " + pkg : "AOT compilation failed or unsupported", Toast.LENGTH_LONG).show();
+                });
+            }).start();
         });
 
         expThermalButton.setOnClickListener(view -> {
