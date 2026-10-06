@@ -606,6 +606,74 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Display & System Performance Tweaks Card (Shizuku / ADB) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_system_tweaks"
+            style="@style/Widget.Material3.CardView.Filled"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/freq_limits_card">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/system_tweaks_title"
+                    android:textAppearance="?attr/textAppearanceTitleMedium"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <Spinner
+                        android:id="@+id/spinner_refresh_rate"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/button_apply_refresh_rate"
+                        style="@style/Widget.Material3.Button.TonalButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="8dp"
+                        android:text="Apply FPS" />
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/button_toggle_blur"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/window_blur_label" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/button_aot_compile"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/aot_compile_label" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Experimental Section Card (Off by default, effect unverified) -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_experimental_section"
@@ -618,7 +686,7 @@
             app:strokeWidth="0dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/freq_limits_card">
+            app:layout_constraintTop_toBottomOf="@id/card_system_tweaks">
 
             <LinearLayout
                 android:layout_width="match_parent"

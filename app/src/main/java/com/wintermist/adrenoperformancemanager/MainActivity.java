@@ -19,12 +19,15 @@ import com.google.android.material.color.DynamicColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import com.wintermist.adrenoperformancemanager.capability.CapabilityReporter;
+import com.wintermist.adrenoperformancemanager.feature.AotCompileFeature;
 import com.wintermist.adrenoperformancemanager.feature.ExperimentalFeatures;
 import com.wintermist.adrenoperformancemanager.feature.FeatureManager;
 import com.wintermist.adrenoperformancemanager.feature.FeatureModule;
 import com.wintermist.adrenoperformancemanager.feature.FixedPerformanceModeFeature;
 import com.wintermist.adrenoperformancemanager.feature.GameModeFeature;
+import com.wintermist.adrenoperformancemanager.feature.RefreshRateFeature;
 import com.wintermist.adrenoperformancemanager.feature.RootKgslFeature;
+import com.wintermist.adrenoperformancemanager.feature.WindowBlurFeature;
 import com.wintermist.adrenoperformancemanager.monitoring.GpuMonitor;
 import com.wintermist.adrenoperformancemanager.privilege.NoneBackend;
 import com.wintermist.adrenoperformancemanager.privilege.PrivilegeBackend;
@@ -154,9 +157,13 @@ public class MainActivity extends Activity {
     private MaterialButton applyGameModeButton;
     private MaterialButton expThermalButton;
     private MaterialButton expSkiavkButton;
+    private MaterialButton applyRefreshRateButton;
+    private MaterialButton toggleBlurButton;
+    private MaterialButton aotCompileButton;
     private EditText gamePackageEdit;
     private Spinner gameModeSpinner;
     private Spinner gameFpsSpinner;
+    private Spinner refreshRateSpinner;
     private Spinner pwrConstraintSpinner;
     private Spinner governorSpinner;
     private Spinner minFreqSpinner;
@@ -273,6 +280,9 @@ public class MainActivity extends Activity {
         featureManager.registerFeature(new GameModeFeature());
         featureManager.registerFeature(new FixedPerformanceModeFeature());
         featureManager.registerFeature(rootKgslFeature);
+        featureManager.registerFeature(new RefreshRateFeature());
+        featureManager.registerFeature(new WindowBlurFeature());
+        featureManager.registerFeature(new AotCompileFeature());
         featureManager.registerFeature(new ExperimentalFeatures.ThermalOverrideFeature());
         featureManager.registerFeature(new ExperimentalFeatures.SkiaVkRendererFeature());
         featureManager.registerFeature(new ExperimentalFeatures.PerAppAngleFeature());
@@ -307,6 +317,12 @@ public class MainActivity extends Activity {
         metricsBeforeAfterText = findViewById(R.id.textMetricsBeforeAfter);
         expThermalButton = findViewById(R.id.button_exp_thermal);
         expSkiavkButton = findViewById(R.id.button_exp_skiavk);
+        refreshRateSpinner = findViewById(R.id.spinner_refresh_rate);
+        applyRefreshRateButton = findViewById(R.id.button_apply_refresh_rate);
+        toggleBlurButton = findViewById(R.id.button_toggle_blur);
+        aotCompileButton = findViewById(R.id.button_aot_compile);
+
+        setupSystemTweaksControls();
 
         detectActiveBackend();
 
@@ -359,6 +375,28 @@ public class MainActivity extends Activity {
 
         applyGameModeButton.setOnClickListener(view -> applyGameModeSelection());
 
+        applyRefreshRateButton.setOnClickListener(view -> {
+            if (refreshRateSpinner.getSelectedItem() == null) return;
+            String fps = refreshRateSpinner.getSelectedItem().toString().replace(" Hz", "").trim();
+            boolean ok = featureManager.applyFeature("refresh_rate_control", activeBackend, fps);
+            Toast.makeText(this, ok ? "Refresh rate set to " + fps + " Hz" : "Failed (requires Shizuku/ADB)", Toast.LENGTH_SHORT).show();
+        });
+
+        toggleBlurButton.setOnClickListener(view -> {
+            boolean ok = featureManager.applyFeature("window_blur_toggle", activeBackend, "true");
+            Toast.makeText(this, ok ? "Window blurs disabled" : "Failed (requires Shizuku/ADB)", Toast.LENGTH_SHORT).show();
+        });
+
+        aotCompileButton.setOnClickListener(view -> {
+            String pkg = gamePackageEdit.getText().toString().trim();
+            if (pkg.isEmpty()) {
+                Toast.makeText(this, "Enter package name in Game Mode card first", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            boolean ok = featureManager.applyFeature("aot_compile_game", activeBackend, pkg);
+            Toast.makeText(this, ok ? "AOT Compilation started for " + pkg : "Failed (requires Shizuku/ADB)", Toast.LENGTH_SHORT).show();
+        });
+
         expThermalButton.setOnClickListener(view -> {
             boolean ok = featureManager.applyFeature("exp_thermal_override", activeBackend, "1");
             Toast.makeText(this, ok ? "Thermal status override applied (unverified)" : "Unsupported or failed", Toast.LENGTH_SHORT).show();
@@ -390,6 +428,20 @@ public class MainActivity extends Activity {
                 featureManager.applyFeature(feature.id(), activeBackend, snap);
             }
         }
+    }
+
+    private void setupSystemTweaksControls() {
+        if (refreshRateSpinner == null) return;
+        List<String> rates = new ArrayList<>();
+        rates.add("60 Hz");
+        rates.add("90 Hz");
+        rates.add("120 Hz");
+        rates.add("144 Hz");
+
+        ArrayAdapter<String> rateAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, rates);
+        rateAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        refreshRateSpinner.setAdapter(rateAdapter);
+        refreshRateSpinner.setSelection(2); // Default 120 Hz
     }
 
     private void setupGameModeControls() {
